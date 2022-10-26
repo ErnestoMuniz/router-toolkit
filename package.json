@@ -15,7 +15,11 @@
     "type": "git",
     "url": "git+https://github.com/ErnestoMuniz/router-toolkit.git"
   },
-  "keywords": [],
+  "keywords": [
+    "router",
+    "zte",
+    "automation"
+  ],
   "author": "ErnestoMuniz",
   "license": "GPL-3.0",
   "bugs": {
