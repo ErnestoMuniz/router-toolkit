@@ -1,1 +1,1 @@
-declare module 'crypto-browserify';
+declare module 'public-encrypt';
