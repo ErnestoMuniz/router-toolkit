@@ -1,4 +1,4 @@
-import parseKeys from 'parse-asn1';
+import parseKeys from './parseKeys';
 var crt = require('browserify-rsa');
 var BN = require('bn.js');
 var randomBytes = require('randombytes');
