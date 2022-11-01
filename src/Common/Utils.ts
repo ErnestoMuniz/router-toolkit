@@ -1,5 +1,5 @@
 import CryptoJS from 'crypto-js';
-import { RSAUtil } from 'node-crypto-rsa';
+import crypto from 'crypto-browserify';
 
 /**
  * Converts Hex to String.
@@ -35,20 +35,17 @@ export function randomNum(n: number) {
  */
 export function decodePassword(src: string, key: string) {
   const iv = key.split('').reverse().join('');
-  if (src.length > 0) {
-    const bKey = CryptoJS.SHA256(key);
-    const bIv = CryptoJS.SHA256(iv);
-    const decrypted = CryptoJS.AES.decrypt(src, bKey, {
-      iv: bIv,
-      mode: CryptoJS.mode.CBC,
-      padding: CryptoJS.pad.ZeroPadding,
-    });
-    const dst = decrypted.toString(CryptoJS.enc.Utf8);
-    if (dst !== '' && dst !== 'failed') {
-      return dst;
-    }
+  if (src === '') {
+    return '';
   }
-  return src;
+  const bkey = CryptoJS.SHA256(key);
+  const biv = CryptoJS.SHA256(iv);
+  const decrypted = CryptoJS.AES.decrypt(src, bkey, {
+    iv: biv,
+    mode: CryptoJS.mode.CBC,
+    padding: CryptoJS.pad.ZeroPadding,
+  });
+  return decrypted.toString(CryptoJS.enc.Utf8);
 }
 
 /**
@@ -83,11 +80,15 @@ export function encodePassword(src: string, key: string, iv: string) {
  * @returns The encrypted string
  */
 export function asyEncode(src: any) {
-  const rsa = new RSAUtil();
-  rsa.publicKeyPEMString =
-    '-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAodPTerkUVCYmv28SOfRV\n7UKHVujx/HjCUTAWy9l0L5H0JV0LfDudTdMNPEKloZsNam3YrtEnq6jqMLJV4ASb\n1d6axmIgJ636wyTUS99gj4BKs6bQSTUSE8h/QkUYv4gEIt3saMS0pZpd90y6+B/9\nhZxZE/RKU8e+zgRqp1/762TB7vcjtjOwXRDEL0w71Jk9i8VUQ59MR1Uj5E8X3WIc\nfYSK5RWBkMhfaTRM6ozS9Bqhi40xlSOb3GBxCmliCifOJNLoO9kFoWgAIw5hkSIb\nGH+4Csop9Uy8VvmmB+B3ubFLN35qIa5OG5+SDXn4L7FeAA5lRiGxRi8tsWrtew8w\nnwIDAQAB\n-----END PUBLIC KEY-----';
-  const encrypted = rsa.encrypt(src);
-  return encrypted;
+  return crypto
+    .publicEncrypt(
+      Object.assign({
+        key: '-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAodPTerkUVCYmv28SOfRV\n7UKHVujx/HjCUTAWy9l0L5H0JV0LfDudTdMNPEKloZsNam3YrtEnq6jqMLJV4ASb\n1d6axmIgJ636wyTUS99gj4BKs6bQSTUSE8h/QkUYv4gEIt3saMS0pZpd90y6+B/9\nhZxZE/RKU8e+zgRqp1/762TB7vcjtjOwXRDEL0w71Jk9i8VUQ59MR1Uj5E8X3WIc\nfYSK5RWBkMhfaTRM6ozS9Bqhi40xlSOb3GBxCmliCifOJNLoO9kFoWgAIw5hkSIb\nGH+4Csop9Uy8VvmmB+B3ubFLN35qIa5OG5+SDXn4L7FeAA5lRiGxRi8tsWrtew8w\nnwIDAQAB\n-----END PUBLIC KEY-----',
+        padding: crypto.constants.RSA_PKCS1_PADDING,
+      }),
+      Buffer.from(src),
+    )
+    .toString('base64');
 }
 
 /**

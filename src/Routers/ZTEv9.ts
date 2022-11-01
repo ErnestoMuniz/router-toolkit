@@ -4,7 +4,7 @@ import { asyEncode, decodePassword, encodeKey, encodePassword, hex2a, randomNum,
 import * as convert from 'xml-js';
 import Router from '../Common/Router';
 import { toVendor } from '@network-utils/vendor-lookup';
-export default class ZTE extends Router {
+export default class ZTEv9 extends Router {
   public time: number;
 
   constructor(host: string, port: number, username: string, password: string) {
@@ -53,6 +53,7 @@ export default class ZTE extends Router {
         _sessionTOKEN: sessToken,
       },
     });
+
     const authCookie = (result.headers['set-cookie'] || [''])[1].split('=')[1].split(';')[0];
     return authCookie;
   }
@@ -95,30 +96,52 @@ export default class ZTE extends Router {
         .replaceAll('\\x', ''),
     );
     const res = (
-      await axios.get(
-        `http://${this.host}:${this.port}/?_type=menuData&_tag=wlan_wlansssidconf_lua.lua&_=${this.time}`,
-        {
-          headers: {
-            Cookie: `SID=${authCookie}; _TESTCOOKIESUPPORT=1`,
-          },
+      await axios.get(`http://${this.host}:${this.port}/?_type=menuData&_tag=wlan_sssidconf_lua.lua&_=${this.time}`, {
+        headers: {
+          Cookie: `SID=${authCookie}; _TESTCOOKIESUPPORT=1`,
         },
-      )
+      })
     ).data;
-    const ssids = (convert.xml2js(res, { compact: true }) as any).ajax_response_xml_root.OBJ_WLANAP_ID.Instance.map(
-      (instance: any, i: number) => ({
-        enabled: Number(instance.ParaValue[2]._text) === 1,
-        ssid: instance.ParaValue[13]._text,
-        authMode: instance.ParaValue[3]._text,
-        encryption: instance.ParaValue[15]._text,
-        hidden: Number(instance.ParaValue[11]._text) === 1,
-        passkey: decodePassword(
-          (convert.xml2js(res, { compact: true }) as any).ajax_response_xml_root.OBJ_WLANPSK_ID.Instance[i].ParaValue[1]
-            ._text,
-          sessToken,
-        ),
-        maxUser: Number(instance.ParaValue[10]._text),
-      }),
-    );
+
+    const ssids = [];
+    const instances = (convert.xml2js(res, { compact: true }) as any).ajax_response_xml_root.OBJ_WLANAP_ID.Instance;
+    for (let i = 0; i < instances.length; i++) {
+      const password = (
+        await axios.post(
+          `http://${this.host}:${this.port}/?_type=menuData&_tag=wlan_sssidconf_lua.lua`,
+          new URLSearchParams({
+            IF_ACTION: 'GetPassword',
+            _InstID_PASS: `DEV.WIFI.AP${i + 1}.PSK1`,
+            PASSTYPE: 'PSK',
+            _sessionTOKEN: sessToken,
+          }),
+          {
+            headers: {
+              Cookie: `SID=${authCookie}; _TESTCOOKIESUPPORT=1`,
+              Check: CryptoJS.SHA256(
+                toQS({
+                  IF_ACTION: 'GetPassword',
+                  _InstID_PASS: `DEV.WIFI.AP${i + 1}.PSK1`,
+                  PASSTYPE: 'PSK',
+                  _sessionTOKEN: sessToken,
+                }),
+              ).toString(),
+            },
+          },
+        )
+      ).data
+        .split('KeyPassphrase</ParaName><ParaValue>')[1]
+        .split('</ParaValue>')[0];
+      ssids.push({
+        enabled: Number(instances[i].ParaValue[2]._text) === 1,
+        ssid: instances[i].ParaValue[10]._text,
+        authMode: instances[i].ParaValue[9]._text,
+        encryption: instances[i].ParaValue[7]._text,
+        hidden: Number(instances[i].ParaValue[1]._text) === 1,
+        passkey: decodePassword(password, sessToken),
+        maxUser: Number(instances[i].ParaValue[8]._text),
+      });
+    }
     return ssids;
   }
 
@@ -159,6 +182,8 @@ export default class ZTE extends Router {
         .split('"')[0]
         .replaceAll('\\x', ''),
     );
+    console.log(sessToken);
+
     const res = (
       await axios.get(
         `http://${this.host}:${this.port}/?_type=menuData&_tag=wlan_wlanbasicadconf_lua.lua&_=${this.time}`,
